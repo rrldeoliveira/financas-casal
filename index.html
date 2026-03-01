@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -447,7 +446,7 @@
     Entrar com Microsoft
   </button>
   <div class="login-info">
-    Seus dados ficam salvos no seu próprio OneDrive, em um arquivo chamado <strong>dados_financas.json</strong> dentro da pasta <strong>Finanças Casal</strong>.
+    Seus lançamentos serão gravados diretamente na sua <strong>PLANILHA FINANCEIRA CASAL 2026.xlsx</strong> no OneDrive (pasta Documentos).
   </div>
 </div>
 
@@ -724,14 +723,15 @@ let contributingGoalId = null;
 // ═══════════════════════════════════════════════════
 const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
+// Categorias alinhadas com a PLANILHA FINANCEIRA CASAL 2026.xlsx
 const CATEGORIES = {
   marido: {
-    despesa: ['Transporte','Alimentação','Saúde','Educação','Lazer','Assinaturas','Cuidados Pessoais','Presentes','Hobbies','Pets','Outros'],
-    receita: ['Salário','Renda Extra','Freelance','Investimentos','Outros']
+    despesa: ['Transporte','Alimentação','Saúde','Educação','Lazer Pessoal','Assinaturas','Cuidados Pessoais','Presentes','Hobbies','Pets','Outros'],
+    receita: ['Salário','Renda Extra','Outros']
   },
   esposa: {
-    despesa: ['Transporte','Alimentação','Saúde','Educação','Lazer','Assinaturas','Cuidados Pessoais','Presentes','Hobbies','Pets','Outros'],
-    receita: ['Salário','Renda Extra','Freelance','Investimentos','Outros']
+    despesa: ['Transporte','Alimentação','Saúde','Educação','Lazer Pessoal','Assinaturas','Cuidados Pessoais','Presentes','Hobbies','Pets','Outros'],
+    receita: ['Salário','Renda Extra','Outros']
   },
   casa: {
     despesa: ['Aluguel/Financiamento','Condomínio','Energia','Água','Gás','Internet/TV','Supermercado','Limpeza','Manutenção','Escola dos Filhos','Outros'],
@@ -740,13 +740,14 @@ const CATEGORIES = {
 };
 
 const CAT_ICONS = {
-  'Transporte':'🚗','Alimentação':'🍽️','Saúde':'🏥','Educação':'📚','Lazer':'🎉',
-  'Assinaturas':'📱','Cuidados Pessoais':'💆','Presentes':'🎁','Hobbies':'🎨',
-  'Pets':'🐾','Salário':'💰','Renda Extra':'💵','Freelance':'💻','Investimentos':'📈',
+  'Transporte':'🚗','Alimentação':'🍽️','Saúde':'🏥','Educação':'📚',
+  'Lazer Pessoal':'🎉','Assinaturas':'📱','Cuidados Pessoais':'💆',
+  'Presentes':'🎁','Hobbies':'🎨','Pets':'🐾',
+  'Salário':'💰','Renda Extra':'💵','Outros':'📌',
   'Aluguel/Financiamento':'🏠','Condomínio':'🏢','Energia':'⚡','Água':'💧',
   'Gás':'🔥','Internet/TV':'📡','Supermercado':'🛒','Limpeza':'🧹',
   'Manutenção':'🔧','Escola dos Filhos':'🎒','Contribuição Marido':'👔',
-  'Contribuição Esposa':'👜','Aluguel Recebido':'🏠','Outros':'📌'
+  'Contribuição Esposa':'👜','Aluguel Recebido':'🏠'
 };
 
 const PERSON_COLORS = { marido:'#2563EB', esposa:'#DB2777', casa:'#16A34A' };
@@ -1418,9 +1419,41 @@ document.addEventListener('keydown', e => {
 // ═══════════════════════════════════════════════════
 
 // ── CONFIGURAÇÃO ── Client ID do Azure
-const CLIENT_ID = 'd1770348-0816-49b0-b2c0-e22b2c1220c3';
-const ONEDRIVE_PATH = 'Finanças Casal/dados_financas.json';
-const GRAPH_SCOPES  = ['Files.ReadWrite', 'User.Read'];
+const CLIENT_ID    = 'd1770348-0816-49b0-b2c0-e22b2c1220c3';
+const GRAPH_SCOPES = ['Files.ReadWrite', 'User.Read'];
+
+// Caminho do arquivo Excel no OneDrive (pasta Documentos)
+const EXCEL_FILE  = 'Documentos/PLANILHA FINANCEIRA CASAL 2026.xlsx';
+const EXCEL_EPATH = EXCEL_FILE.split('/').map(encodeURIComponent).join('/');
+
+// Mapeamento mês → nome da aba na planilha
+const SHEET_NAMES = {
+  3:'Mar 2026', 4:'Abr 2026', 5:'Mai 2026', 6:'Jun 2026',
+  7:'Jul 2026', 8:'Ago 2026', 9:'Set 2026', 10:'Out 2026',
+  11:'Nov 2026', 12:'Dez 2026'
+};
+
+// Mapeamento categoria → célula Realizado (C=Marido, H=Esposa)
+// Estrutura confirmada: B=Planejado Marido, C=Realizado Marido, H=Realizado Esposa
+const CELL_MAP = {
+  receita: {
+    'Salário':     { marido:'C5',  esposa:'H5'  },
+    'Renda Extra': { marido:'C6',  esposa:'H6'  },
+    'Outros':      { marido:'C7',  esposa:'H7'  },
+  },
+  despesa: {
+    'Transporte':        { marido:'C12', esposa:'H12' },
+    'Alimentação':       { marido:'C13', esposa:'H13' },
+    'Saúde':             { marido:'C14', esposa:'H14' },
+    'Educação':          { marido:'C15', esposa:'H15' },
+    'Lazer Pessoal':     { marido:'C16', esposa:'H16' },
+    'Assinaturas':       { marido:'C17', esposa:'H17' },
+    'Cuidados Pessoais': { marido:'C18', esposa:'H18' },
+    'Presentes':         { marido:'C19', esposa:'H19' },
+    'Hobbies':           { marido:'C20', esposa:'H20' },
+    'Pets':              { marido:'C21', esposa:'H21' },
+  }
+};
 
 let msalInstance = null;
 let graphToken    = null;
@@ -1509,60 +1542,89 @@ async function onLoginSuccess(account) {
   document.getElementById('login-screen').classList.add('hidden');
   setSyncStatus('loading');
   showSyncBadge(true);
-  await loadFromOneDrive();
+  await loadFromExcel();
 }
 
-// ── Lê dados do OneDrive ──
-async function loadFromOneDrive() {
+// ════════════════════════════════════════════════
+//  EXCEL — verifica se a planilha existe no OneDrive
+// ════════════════════════════════════════════════
+async function loadFromExcel() {
   if (!graphToken) return;
   setSyncStatus('loading');
   try {
-    const res = await fetch(
-      `https://graph.microsoft.com/v1.0/me/drive/root:/${encodeURIComponent(ONEDRIVE_PATH)}:/content`,
-      { headers: { Authorization: `Bearer ${graphToken}` } }
-    );
+    // Apenas verifica se o arquivo existe (não modifica nada nele)
+    const url = `https://graph.microsoft.com/v1.0/me/drive/root:/${EXCEL_EPATH}:/workbook`;
+    const res  = await fetch(url, { headers: { Authorization: `Bearer ${graphToken}` } });
 
     if (res.ok) {
-      const remote = await res.json();
-      // Mescla: remoto tem prioridade, mas mantém dados locais se remoto estiver vazio
-      if (remote.transactions || remote.goals) {
-        appData = remote;
-        saveData();
-      }
       setSyncStatus('synced');
+      // Os lançamentos individuais ficam no localStorage (histórico do app)
+      // A planilha recebe os TOTAIS por categoria ao sincronizar
     } else if (res.status === 404) {
-      // Arquivo ainda não existe → cria com dados locais
-      await saveToOneDrive(true);
+      setSyncStatus('error');
+      alert('⚠️ Arquivo "PLANILHA FINANCEIRA CASAL 2026.xlsx" não encontrado na pasta Documentos do seu OneDrive.\n\nVerifique se o arquivo está na pasta correta e tente novamente.');
     } else if (res.status === 401) {
-      // Token expirado → pede novo
       await refreshToken();
+      return;
     } else {
       setSyncStatus('error');
     }
-  } catch {
+  } catch(e) {
+    console.error('Erro ao acessar planilha:', e);
     setSyncStatus('error');
   }
   renderPage(currentPage);
 }
 
-// ── Salva dados no OneDrive ──
-async function saveToOneDrive(silent = false) {
+// ════════════════════════════════════════════════
+//  EXCEL — atualiza célula individual via Graph API
+// ════════════════════════════════════════════════
+async function patchCell(sheetName, cell, value) {
+  // Usa a API de workbook do Graph para escrever diretamente na célula
+  const url = `https://graph.microsoft.com/v1.0/me/drive/root:/${EXCEL_EPATH}:/workbook/worksheets('${encodeURIComponent(sheetName)}')/range(address='${cell}')`;
+  const res  = await fetch(url, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${graphToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ values: [[value]] })
+  });
+  return res.ok;
+}
+
+// ════════════════════════════════════════════════
+//  EXCEL — calcula totais e grava nas células certas
+// ════════════════════════════════════════════════
+async function saveToExcel(silent = false) {
   if (!graphToken) return;
   if (!silent) setSyncStatus('syncing');
+
   try {
-    const res = await fetch(
-      `https://graph.microsoft.com/v1.0/me/drive/root:/${encodeURIComponent(ONEDRIVE_PATH)}:/content`,
-      {
-        method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${graphToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(appData)
-      }
-    );
-    setSyncStatus(res.ok ? 'synced' : 'error');
-  } catch {
+    // 1. Agrupa lançamentos: chave = "sheetName||célula" → soma dos valores
+    const totais = {};
+    for (const t of appData.transactions) {
+      if (t.ano !== 2026) continue;                      // planilha só tem 2026
+      const sheet = SHEET_NAMES[t.mes];
+      if (!sheet) continue;                              // mês fora do range
+      const mapa  = CELL_MAP[t.tipo]?.[t.categoria];
+      if (!mapa)  continue;                              // categoria não mapeada
+      const cel   = t.pessoa === 'marido' ? mapa.marido : mapa.esposa;
+      const chave = `${sheet}||${cel}`;
+      totais[chave] = (totais[chave] || 0) + t.valor;
+    }
+
+    // 2. Grava cada total na célula correspondente da planilha
+    const promises = Object.entries(totais).map(([chave, valor]) => {
+      const [sheet, cel] = chave.split('||');
+      return patchCell(sheet, cel, valor);
+    });
+    const resultados = await Promise.all(promises);
+
+    const algumErro = resultados.some(r => r === false);
+    setSyncStatus(algumErro ? 'error' : 'synced');
+  } catch(e) {
+    console.error('Erro ao gravar na planilha:', e);
     setSyncStatus('error');
   }
 }
@@ -1575,18 +1637,18 @@ async function refreshToken() {
   try {
     const res = await msalInstance.acquireTokenSilent({ scopes: GRAPH_SCOPES, account: accounts[0] });
     graphToken = res.accessToken;
-    await loadFromOneDrive();
+    await loadFromExcel();
   } catch {
     showLoginScreen();
   }
 }
 
-// ── Agenda sincronização (debounced) ──
+// ── Agenda sincronização com a planilha (debounced 2s) ──
 function scheduleSync() {
   if (!graphToken) return;
   setSyncStatus('syncing');
   clearTimeout(syncTimeout);
-  syncTimeout = setTimeout(() => saveToOneDrive(), 1800);
+  syncTimeout = setTimeout(() => saveToExcel(), 2000);
 }
 
 // ── Status visual de sincronização ──

@@ -734,8 +734,8 @@
 
 <!-- SheetJS for Excel export (defer: não precisa bloquear o parser) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
-<!-- Excel Sync — integração com tabela Excel no OneDrive -->
-<script src="excelSync.js" defer></script>
+<!-- Excel Sync — deve carregar de forma síncrona pois é chamado pelo app -->
+<script src="excelSync.js"></script>
 <!-- MSAL.js loader robusto: jsDelivr primário, alcdn fallback -->
 <script>
 (function () {
@@ -1808,16 +1808,18 @@ async function saveToExcel(silent = false) {
 
   try {
     // 1. Agrupa lançamentos: chave = "sheetName||célula" → soma dos valores
+    // Campos reais da transação: month="2026-03", person, type, category, amount
     const totais = {};
     for (const t of appData.transactions) {
-      if (t.ano !== 2026) continue;                      // planilha só tem 2026
-      const sheet = SHEET_NAMES[t.mes];
+      if (!t.month || !t.month.startsWith('2026-')) continue; // só 2026
+      const mesNum = parseInt(t.month.split('-')[1], 10);
+      const sheet  = SHEET_NAMES[mesNum];
       if (!sheet) continue;                              // mês fora do range
-      const mapa  = CELL_MAP[t.tipo]?.[t.categoria];
-      if (!mapa)  continue;                              // categoria não mapeada
-      const cel   = t.pessoa === 'marido' ? mapa.marido : mapa.esposa;
-      const chave = `${sheet}||${cel}`;
-      totais[chave] = (totais[chave] || 0) + t.valor;
+      const mapa   = CELL_MAP[t.type]?.[t.category];
+      if (!mapa)   continue;                             // categoria não mapeada
+      const cel    = t.person === 'marido' ? mapa.marido : mapa.esposa;
+      const chave  = `${sheet}||${cel}`;
+      totais[chave] = (totais[chave] || 0) + t.amount;
     }
 
     // 2. Grava cada total na célula correspondente da planilha

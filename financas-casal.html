@@ -1499,10 +1499,11 @@ const CELL_MAP = {
   }
 };
 
-let msalInstance = null;
+let msalInstance  = null;
 let graphToken    = null;
 let syncTimeout   = null;
 let isMSALReady   = false;
+let msalInitError = null;   // guarda mensagem do último erro de initMSAL()
 
 // ── Verifica se o Client ID foi configurado ──
 function isConfigured() {
@@ -1520,11 +1521,15 @@ async function initMSAL() {
   }
 
   try {
+    msalInitError = null;
+    const redirectUri = window.location.origin + window.location.pathname;
+    console.info('[MSAL] redirectUri configurado:', redirectUri);
+
     msalInstance = new msal.PublicClientApplication({
       auth: {
         clientId: CLIENT_ID,
         authority: 'https://login.microsoftonline.com/common',
-        redirectUri: window.location.href.split('?')[0].split('#')[0],
+        redirectUri,
       },
       cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: true }
     });
@@ -1557,8 +1562,10 @@ async function initMSAL() {
     }
     isMSALReady = true;
   } catch (err) {
-    console.error('Erro MSAL:', err);
+    console.error('[MSAL] Erro na inicialização:', err);
     isMSALReady = false;
+    msalInitError = err.message || String(err);
+    msalInstance  = null;   // garante null para o caller detectar falha
   }
 }
 
@@ -1608,7 +1615,12 @@ async function msConnectOrDisconnect() {
     // Se initMSAL já logou silenciosamente, não precisa continuar
     if (msalInstance && msalInstance.getAllAccounts().length > 0) return;
   }
-  if (!msalInstance) { showToast('⚠️ Não foi possível inicializar o login Microsoft.'); return; }
+  if (!msalInstance) {
+    const msg = msalInitError || 'Não foi possível inicializar o login Microsoft.';
+    console.error('[MSAL] msalInstance null após initMSAL(). Erro:', msalInitError);
+    showToast('⚠️ ' + msg, 6000);
+    return;
+  }
   const accounts = msalInstance.getAllAccounts();
   if (accounts.length > 0) {
     await msLogout();

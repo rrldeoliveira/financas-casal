@@ -404,6 +404,30 @@
       border-radius: 8px; font-size: 12px; margin-top: 8px;
       word-break: break-all; font-family: monospace;
     }
+
+    /* ── MS CONNECT CARD ── */
+    .ms-connect-card {
+      background: white; border-radius: 14px; padding: 16px;
+      margin-bottom: 10px; box-shadow: var(--shadow);
+      display: flex; align-items: center; gap: 14px;
+    }
+    .ms-connect-card .ms-logo { font-size: 28px; flex-shrink: 0; }
+    .ms-connect-card .ms-info { flex: 1; min-width: 0; }
+    .ms-connect-card .ms-title { font-size: 14px; font-weight: 700; color: var(--text); }
+    .ms-connect-card .ms-status {
+      font-size: 12px; margin-top: 2px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .ms-connect-card .ms-status.connected { color: #16A34A; }
+    .ms-connect-card .ms-status.disconnected { color: var(--text-light); }
+    .ms-connect-btn {
+      flex-shrink: 0; padding: 9px 16px; border: none; border-radius: 10px;
+      font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s;
+    }
+    .ms-connect-btn.connect { background: #2563EB; color: white; }
+    .ms-connect-btn.connect:active { opacity: 0.85; }
+    .ms-connect-btn.disconnect { background: #FEF2F2; color: #EF4444; }
+    .ms-connect-btn.disconnect:active { opacity: 0.85; }
   </style>
 </head>
 <body>
@@ -543,6 +567,16 @@
     <div id="resumo-marido-card"></div>
     <div id="resumo-esposa-card"></div>
     <div id="resumo-casa-card"></div>
+
+    <div class="section-label">Sincronização com OneDrive</div>
+    <div class="ms-connect-card" id="ms-connect-card">
+      <div class="ms-logo">☁️</div>
+      <div class="ms-info">
+        <div class="ms-title">Conta Microsoft</div>
+        <div class="ms-status disconnected" id="ms-account-status">Não conectado</div>
+      </div>
+      <button class="ms-connect-btn connect" id="ms-connect-btn" onclick="msConnectOrDisconnect()">Conectar</button>
+    </div>
 
     <div class="section-label">Segurança</div>
     <button class="pin-settings-btn" onclick="openChangePinFlow()">
@@ -1515,10 +1549,11 @@ async function initMSAL() {
         graphToken = silent.accessToken;
         await onLoginSuccess(accounts[0]);
       } catch {
+        updateMsAccountUI(null);
         showLoginScreen();
       }
     } else {
-      showLoginScreen();
+      updateMsAccountUI(null);
     }
     isMSALReady = true;
   } catch (err) {
@@ -1543,16 +1578,78 @@ function showLoginScreen() {
   document.getElementById('login-screen').classList.remove('hidden');
 }
 
+// ── Atualiza o card de status Microsoft no Resumo ──
+function updateMsAccountUI(account) {
+  const statusEl = document.getElementById('ms-account-status');
+  const btnEl    = document.getElementById('ms-connect-btn');
+  if (!statusEl || !btnEl) return;
+  if (account) {
+    statusEl.textContent = '✓ ' + (account.username || account.name || 'Conectado');
+    statusEl.className = 'ms-status connected';
+    btnEl.textContent = 'Desconectar';
+    btnEl.className = 'ms-connect-btn disconnect';
+  } else {
+    statusEl.textContent = 'Não conectado';
+    statusEl.className = 'ms-status disconnected';
+    btnEl.textContent = 'Conectar';
+    btnEl.className = 'ms-connect-btn connect';
+  }
+}
+
+// ── Botão único: conecta se desconectado, desconecta se conectado ──
+async function msConnectOrDisconnect() {
+  if (!msalInstance) { showToast('⚠️ MSAL não inicializado'); return; }
+  const accounts = msalInstance.getAllAccounts();
+  if (accounts.length > 0) {
+    await msLogout();
+  } else {
+    await loginWithMicrosoft();
+  }
+}
+
 async function loginWithMicrosoft() {
   if (!msalInstance) return;
-  await msalInstance.loginRedirect({ scopes: GRAPH_SCOPES });
+  try {
+    // Popup é o padrão (não navega para fora da página)
+    const response = await msalInstance.loginPopup({ scopes: GRAPH_SCOPES });
+    graphToken = response.accessToken;
+    await onLoginSuccess(response.account);
+  } catch (popupErr) {
+    console.warn('[MSAL] loginPopup falhou, tentando redirect:', popupErr.message);
+    try {
+      // Fallback: redirect (mobile ou popup bloqueado)
+      await msalInstance.loginRedirect({ scopes: GRAPH_SCOPES });
+    } catch (redirectErr) {
+      console.error('[MSAL] loginRedirect também falhou:', redirectErr.message);
+      showToast('⚠️ Não foi possível conectar à conta Microsoft.');
+    }
+  }
+}
+
+async function msLogout() {
+  if (!msalInstance) return;
+  graphToken = null;
+  const accounts = msalInstance.getAllAccounts();
+  updateMsAccountUI(null);
+  showSyncBadge(false);
+  setSyncStatus('error');
+  showToast('👋 Conta Microsoft desconectada.');
+  if (accounts.length > 0) {
+    // Limpa cache local sem redirecionar (onlyLocal)
+    await msalInstance.logoutPopup({ account: accounts[0] }).catch(() =>
+      msalInstance.clearCache()
+    );
+  }
 }
 
 async function onLoginSuccess(account) {
   document.getElementById('login-screen').classList.add('hidden');
+  updateMsAccountUI(account);
   setSyncStatus('loading');
   showSyncBadge(true);
   await loadFromExcel();
+  // Flush da fila offline gerada antes do login
+  await flushExcelQueue();
 }
 
 // ════════════════════════════════════════════════

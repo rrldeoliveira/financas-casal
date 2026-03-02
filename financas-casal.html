@@ -1,0 +1,1698 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#1E40AF">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>💰 Finanças do Casal</title>
+  <style>
+    /* ── PIN SCREEN ── */
+    #pin-screen {
+      position: fixed; inset: 0; z-index: 9999;
+      background: linear-gradient(160deg, #1E3A8A 0%, #1E40AF 50%, #1D4ED8 100%);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 32px 24px;
+    }
+    #pin-screen .pin-logo { font-size: 56px; margin-bottom: 16px; }
+    #pin-screen h2 { color: white; font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+    #pin-screen p { color: rgba(255,255,255,0.65); font-size: 14px; margin-bottom: 40px; }
+    .pin-dots { display: flex; gap: 14px; margin-bottom: 40px; }
+    .pin-dot {
+      width: 16px; height: 16px; border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.5);
+      background: transparent; transition: all 0.2s;
+    }
+    .pin-dot.filled { background: white; border-color: white; transform: scale(1.1); }
+    .pin-dot.error { background: #EF4444; border-color: #EF4444; }
+    .pin-keypad {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 14px; width: 100%; max-width: 280px;
+    }
+    .pin-key {
+      aspect-ratio: 1; border-radius: 50%;
+      border: none; background: rgba(255,255,255,0.12);
+      color: white; font-size: 22px; font-weight: 700;
+      cursor: pointer; transition: all 0.15s;
+      display: flex; align-items: center; justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+    .pin-key:active { background: rgba(255,255,255,0.3); transform: scale(0.93); }
+    .pin-key.empty { background: transparent; cursor: default; }
+    .pin-key.del { font-size: 18px; }
+    .pin-error-msg {
+      color: #FCA5A5; font-size: 13px; font-weight: 600;
+      margin-top: -24px; margin-bottom: 16px; height: 18px;
+      transition: opacity 0.3s;
+    }
+    #pin-screen.hidden { display: none; }
+
+    /* ── PIN CHANGE (settings) ── */
+    .pin-settings-btn {
+      display: flex; align-items: center; gap: 14px; padding: 15px 16px;
+      background: white; border-radius: 14px; border: none;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+      cursor: pointer; width: 100%; margin-bottom: 10px; text-align: left;
+    }
+    .pin-settings-btn .eb-icon { font-size: 30px; }
+    .pin-settings-btn .eb-title { font-size: 14px; font-weight: 700; color: #0F172A; }
+    .pin-settings-btn .eb-desc { font-size: 12px; color: #64748B; margin-top: 1px; }
+  </style>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    :root {
+      --marido: #2563EB; --marido-light: #EFF6FF; --marido-dark: #1D4ED8;
+      --esposa: #DB2777; --esposa-light: #FDF2F8; --esposa-dark: #BE185D;
+      --casa: #16A34A; --casa-light: #F0FDF4; --casa-dark: #15803D;
+      --meta: #D97706; --meta-light: #FFFBEB;
+      --bg: #F1F5F9; --card: #FFFFFF; --text: #0F172A; --text-light: #64748B;
+      --border: #E2E8F0; --success: #22C55E; --danger: #EF4444;
+      --radius: 16px; --shadow: 0 2px 12px rgba(0,0,0,0.07);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+      background: var(--bg); color: var(--text);
+      max-width: 480px; margin: 0 auto; min-height: 100vh;
+      position: relative; overflow-x: hidden;
+    }
+
+    /* ── PAGES ── */
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* ── HEADER ── */
+    .page-header {
+      background: linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%);
+      color: white; padding: 52px 20px 20px;
+    }
+    .page-header h1 { font-size: 22px; font-weight: 800; letter-spacing: -0.3px; }
+    .page-header p { font-size: 13px; opacity: 0.75; margin-top: 3px; }
+
+    /* ── CONTENT ── */
+    .content { padding: 16px; padding-bottom: 96px; }
+
+    /* ── NAV ── */
+    .nav-bottom {
+      position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+      width: 100%; max-width: 480px; background: rgba(255,255,255,0.95);
+      backdrop-filter: blur(12px); border-top: 1px solid var(--border);
+      display: flex; justify-content: space-around;
+      padding: 8px 0 calc(8px + env(safe-area-inset-bottom, 0px));
+      z-index: 100;
+    }
+    .nav-item {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 3px; padding: 6px 14px; border-radius: 12px; cursor: pointer;
+      color: var(--text-light); font-size: 10px; font-weight: 600;
+      border: none; background: none; transition: all 0.2s;
+    }
+    .nav-item .nav-icon { font-size: 21px; transition: transform 0.2s; }
+    .nav-item.active { color: var(--marido); }
+    .nav-item.active .nav-icon { transform: scale(1.12); }
+
+    /* ── CARDS ── */
+    .card {
+      background: var(--card); border-radius: var(--radius);
+      padding: 16px; margin-bottom: 12px; box-shadow: var(--shadow);
+    }
+    .card-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 14px;
+    }
+    .card-title {
+      font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 7px;
+    }
+
+    /* ── BALANCE CARDS ── */
+    .balance-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+    .balance-card {
+      border-radius: 14px; padding: 16px; color: white;
+      background: linear-gradient(135deg, var(--c1), var(--c2));
+      position: relative; overflow: hidden;
+    }
+    .balance-card::after {
+      content: ''; position: absolute; right: -16px; top: -16px;
+      width: 80px; height: 80px; border-radius: 50%;
+      background: rgba(255,255,255,0.08);
+    }
+    .balance-card.marido { --c1: #2563EB; --c2: #1D4ED8; }
+    .balance-card.esposa { --c1: #DB2777; --c2: #BE185D; }
+    .balance-card.casa { --c1: #16A34A; --c2: #15803D; grid-column: span 2; }
+    .balance-card .bc-label { font-size: 11px; opacity: 0.8; margin-bottom: 6px; font-weight: 600; letter-spacing: 0.3px; }
+    .balance-card .bc-amount { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+    .balance-card .bc-sub {
+      font-size: 11px; opacity: 0.75; margin-top: 6px;
+      display: flex; justify-content: space-between;
+    }
+
+    /* ── TRANSACTIONS ── */
+    .tx-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 0; border-bottom: 1px solid #F1F5F9;
+      cursor: pointer;
+    }
+    .tx-item:last-child { border-bottom: none; }
+    .tx-icon {
+      width: 42px; height: 42px; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 19px; flex-shrink: 0;
+    }
+    .tx-info { flex: 1; min-width: 0; }
+    .tx-desc { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tx-meta { font-size: 11px; color: var(--text-light); margin-top: 2px; }
+    .tx-amount { font-size: 15px; font-weight: 700; flex-shrink: 0; }
+    .tx-amount.receita { color: var(--success); }
+    .tx-amount.despesa { color: var(--danger); }
+
+    /* ── FORMS ── */
+    .form-group { margin-bottom: 16px; }
+    .form-label { font-size: 13px; font-weight: 600; margin-bottom: 7px; display: block; color: var(--text-light); }
+    .form-control {
+      width: 100%; padding: 13px 15px; border: 2px solid var(--border);
+      border-radius: 12px; font-size: 15px; color: var(--text); background: white;
+      transition: border-color 0.2s; -webkit-appearance: none; appearance: none;
+    }
+    .form-control:focus { outline: none; border-color: var(--marido); }
+
+    /* ── SEGMENT ── */
+    .segment {
+      display: flex; background: #F1F5F9;
+      border-radius: 12px; padding: 4px; margin-bottom: 16px;
+    }
+    .segment-btn {
+      flex: 1; padding: 10px 4px; border: none; border-radius: 9px;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+      transition: all 0.2s; background: transparent; color: var(--text-light);
+    }
+    .segment-btn.active { background: white; color: var(--text); box-shadow: 0 1px 5px rgba(0,0,0,0.12); }
+
+    /* ── TYPE TOGGLE ── */
+    .type-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+    .type-btn {
+      padding: 13px; border: 2px solid var(--border); border-radius: 12px;
+      font-size: 14px; font-weight: 600; cursor: pointer;
+      transition: all 0.2s; background: white;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .type-btn.receita.active { border-color: var(--success); background: #F0FDF4; color: #16A34A; }
+    .type-btn.despesa.active { border-color: var(--danger); background: #FEF2F2; color: var(--danger); }
+
+    /* ── BUTTONS ── */
+    .btn {
+      width: 100%; padding: 15px; border: none; border-radius: 13px;
+      font-size: 16px; font-weight: 700; cursor: pointer; transition: all 0.2s;
+    }
+    .btn-primary { background: linear-gradient(135deg, #2563EB, #1D4ED8); color: white; }
+    .btn-primary:active { transform: scale(0.98); opacity: 0.9; }
+    .btn-ghost { background: #F1F5F9; color: var(--text-light); }
+    .btn-sm {
+      padding: 8px 14px; font-size: 12px; border-radius: 9px;
+      border: none; cursor: pointer; font-weight: 600;
+    }
+
+    /* ── FAB ── */
+    .fab {
+      position: fixed; bottom: 80px; right: calc(50% - 228px);
+      width: 56px; height: 56px; border-radius: 50%;
+      background: linear-gradient(135deg, #2563EB, #1D4ED8);
+      color: white; border: none; font-size: 26px; cursor: pointer;
+      box-shadow: 0 4px 18px rgba(37,99,235,0.45);
+      display: flex; align-items: center; justify-content: center; z-index: 99;
+      transition: transform 0.2s;
+    }
+    .fab:active { transform: scale(0.93); }
+
+    /* ── MODAL ── */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(15,23,42,0.55);
+      z-index: 200; display: flex; align-items: flex-end;
+      opacity: 0; pointer-events: none; transition: opacity 0.25s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+    .modal-sheet {
+      background: white; border-radius: 24px 24px 0 0;
+      padding: 8px 18px 20px;
+      padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+      width: 100%; max-height: 92vh; overflow-y: auto;
+      transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.32,0.72,0,1);
+    }
+    .modal-overlay.open .modal-sheet { transform: translateY(0); }
+    .modal-handle { width: 38px; height: 4px; background: #E2E8F0; border-radius: 2px; margin: 12px auto 18px; }
+    .modal-title { font-size: 20px; font-weight: 800; margin-bottom: 18px; }
+
+    /* ── GOALS ── */
+    .goal-card {
+      background: white; border-radius: 14px; padding: 16px;
+      margin-bottom: 10px; box-shadow: var(--shadow);
+    }
+    .goal-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+    .goal-name { font-size: 16px; font-weight: 700; }
+    .goal-saved { font-size: 18px; font-weight: 800; color: var(--meta); }
+    .goal-target { font-size: 12px; color: var(--text-light); }
+    .progress-bar { height: 8px; background: #F1F5F9; border-radius: 99px; overflow: hidden; margin: 10px 0 6px; }
+    .progress-fill {
+      height: 100%; border-radius: 99px;
+      background: linear-gradient(90deg, #D97706, #F59E0B);
+      transition: width 0.6s ease;
+    }
+    .goal-meta { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-light); }
+    .goal-tip { font-size: 12px; color: var(--text-light); margin-top: 8px; background: #FFFBEB; padding: 6px 10px; border-radius: 8px; }
+
+    /* ── MONTH PICKER ── */
+    .month-picker {
+      display: flex; align-items: center; gap: 10px;
+      background: white; border-radius: 12px; padding: 10px 14px;
+      margin-bottom: 14px; box-shadow: var(--shadow);
+    }
+    .month-picker button {
+      background: #F1F5F9; border: none; font-size: 18px; cursor: pointer;
+      padding: 4px 10px; border-radius: 8px; color: var(--text-light); line-height: 1;
+    }
+    .month-picker span { flex: 1; text-align: center; font-weight: 700; font-size: 15px; }
+
+    /* ── SUMMARY ── */
+    .summary-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 9px 0; border-bottom: 1px solid #F8FAFC; font-size: 14px;
+    }
+    .summary-row:last-child { border-bottom: none; }
+    .summary-total {
+      font-weight: 800; font-size: 15px; border-top: 2px solid #E2E8F0;
+      padding-top: 10px; margin-top: 4px;
+    }
+
+    /* ── FILTER TABS ── */
+    .filter-tabs {
+      display: flex; gap: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch;
+      padding-bottom: 4px; margin-bottom: 14px; scrollbar-width: none;
+    }
+    .filter-tabs::-webkit-scrollbar { display: none; }
+    .filter-tab {
+      flex-shrink: 0; padding: 8px 16px; border-radius: 99px;
+      border: 2px solid var(--border); font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: all 0.2s; background: white; white-space: nowrap;
+    }
+    .filter-tab.active-todos { border-color: #0F172A; background: #0F172A; color: white; }
+    .filter-tab.active-marido { border-color: var(--marido); background: var(--marido-light); color: var(--marido); }
+    .filter-tab.active-esposa { border-color: var(--esposa); background: var(--esposa-light); color: var(--esposa); }
+    .filter-tab.active-casa { border-color: var(--casa); background: var(--casa-light); color: var(--casa); }
+
+    /* ── DATE GROUPS ── */
+    .date-group-label {
+      font-size: 11px; color: var(--text-light); font-weight: 700;
+      letter-spacing: 0.5px; text-transform: uppercase; padding: 10px 0 4px;
+    }
+
+    /* ── EXPORT BUTTONS ── */
+    .export-btn {
+      display: flex; align-items: center; gap: 14px; padding: 15px 16px;
+      background: white; border-radius: 14px; border: none; box-shadow: var(--shadow);
+      cursor: pointer; width: 100%; margin-bottom: 10px; text-align: left;
+    }
+    .export-btn .eb-icon { font-size: 30px; }
+    .export-btn .eb-title { font-size: 14px; font-weight: 700; color: var(--text); }
+    .export-btn .eb-desc { font-size: 12px; color: var(--text-light); margin-top: 1px; }
+
+    /* ── TOAST ── */
+    .toast {
+      position: fixed; bottom: 100px; left: 50%;
+      transform: translateX(-50%) translateY(12px);
+      background: #0F172A; color: white; padding: 12px 22px;
+      border-radius: 99px; font-size: 14px; font-weight: 600;
+      z-index: 400; opacity: 0; transition: all 0.3s; pointer-events: none;
+      white-space: nowrap; max-width: calc(100vw - 32px);
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ── EMPTY ── */
+    .empty-state { text-align: center; padding: 36px 20px; color: var(--text-light); }
+    .empty-state .emoji { font-size: 48px; margin-bottom: 12px; }
+    .empty-state p { font-size: 15px; line-height: 1.6; }
+
+    /* ── MISC ── */
+    .hidden { display: none !important; }
+    input[type=number] { -moz-appearance: textfield; }
+    input[type=number]::-webkit-outer-spin-button,
+    input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+    /* ── SECTION LABEL ── */
+    .section-label {
+      font-size: 11px; font-weight: 800; letter-spacing: 0.8px;
+      text-transform: uppercase; color: var(--text-light);
+      margin: 18px 0 8px;
+    }
+
+    /* ── LOGIN SCREEN ── */
+    #login-screen {
+      position: fixed; inset: 0; z-index: 8000;
+      background: linear-gradient(160deg, #1E3A8A 0%, #1E40AF 50%, #1D4ED8 100%);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 40px 28px; text-align: center;
+    }
+    #login-screen.hidden { display: none; }
+    #login-screen .login-logo { font-size: 64px; margin-bottom: 20px; }
+    #login-screen h2 { color: white; font-size: 24px; font-weight: 800; margin-bottom: 8px; }
+    #login-screen p { color: rgba(255,255,255,0.65); font-size: 14px; line-height: 1.6; margin-bottom: 40px; max-width: 280px; }
+    .ms-login-btn {
+      display: flex; align-items: center; justify-content: center; gap: 12px;
+      background: white; color: #0F172A; border: none; border-radius: 14px;
+      padding: 16px 28px; font-size: 16px; font-weight: 700; cursor: pointer;
+      width: 100%; max-width: 300px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .ms-login-btn:active { transform: scale(0.97); }
+    .ms-login-btn img { width: 22px; height: 22px; }
+    .login-info {
+      margin-top: 28px; color: rgba(255,255,255,0.45);
+      font-size: 12px; line-height: 1.6; max-width: 280px;
+    }
+
+    /* ── SYNC STATUS ── */
+    .sync-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 11px; font-weight: 600; padding: 3px 10px;
+      border-radius: 99px; background: rgba(255,255,255,0.15);
+      color: rgba(255,255,255,0.85); margin-top: 6px;
+    }
+    .sync-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: currentColor; display: inline-block;
+    }
+    .sync-dot.pulse { animation: pulse 1.2s infinite; }
+    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+
+    /* ── USER CHIP ── */
+    .user-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 12px; color: rgba(255,255,255,0.7);
+      margin-top: 4px;
+    }
+
+    /* ── CONFIG NOT SET ── */
+    .config-warning {
+      background: #FEF3C7; border: 2px solid #F59E0B; border-radius: 14px;
+      padding: 16px; margin-bottom: 16px;
+    }
+    .config-warning p { font-size: 13px; line-height: 1.6; color: #78350F; }
+    .config-warning code {
+      display: block; background: #FDE68A; padding: 8px 10px;
+      border-radius: 8px; font-size: 12px; margin-top: 8px;
+      word-break: break-all; font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── PIN SCREEN ── -->
+<div id="pin-screen">
+  <div class="pin-logo">💰</div>
+  <h2>Finanças do Casal</h2>
+  <p id="pin-subtitle">Digite o PIN para entrar</p>
+  <div class="pin-dots">
+    <div class="pin-dot" id="pd0"></div>
+    <div class="pin-dot" id="pd1"></div>
+    <div class="pin-dot" id="pd2"></div>
+    <div class="pin-dot" id="pd3"></div>
+  </div>
+  <div class="pin-error-msg" id="pin-error"></div>
+  <div class="pin-keypad">
+    <button class="pin-key" onclick="pinPress('1')">1</button>
+    <button class="pin-key" onclick="pinPress('2')">2</button>
+    <button class="pin-key" onclick="pinPress('3')">3</button>
+    <button class="pin-key" onclick="pinPress('4')">4</button>
+    <button class="pin-key" onclick="pinPress('5')">5</button>
+    <button class="pin-key" onclick="pinPress('6')">6</button>
+    <button class="pin-key" onclick="pinPress('7')">7</button>
+    <button class="pin-key" onclick="pinPress('8')">8</button>
+    <button class="pin-key" onclick="pinPress('9')">9</button>
+    <button class="pin-key empty"></button>
+    <button class="pin-key" onclick="pinPress('0')">0</button>
+    <button class="pin-key del" onclick="pinDel()">⌫</button>
+  </div>
+</div>
+
+<!-- ── LOGIN SCREEN ── -->
+<div id="login-screen" class="hidden">
+  <div class="login-logo">☁️</div>
+  <h2>Conectar ao OneDrive</h2>
+  <p>Entre com sua conta Microsoft para sincronizar os dados automaticamente entre todos os seus dispositivos.</p>
+  <button class="ms-login-btn" onclick="loginWithMicrosoft()">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/4/44/Microsoft_logo.svg" alt="Microsoft">
+    Entrar com Microsoft
+  </button>
+  <div class="login-info">
+    Seus lançamentos serão gravados diretamente na sua <strong>PLANILHA FINANCEIRA CASAL 2026.xlsx</strong> no OneDrive (pasta Documentos).
+  </div>
+</div>
+
+<!-- ── PAGE: INÍCIO ── -->
+<div id="page-inicio" class="page active">
+  <div class="page-header">
+    <h1>💰 Finanças do Casal</h1>
+    <p id="header-month-label"></p>
+    <div id="sync-badge-inicio" class="sync-badge hidden">
+      <span class="sync-dot" id="sync-dot-inicio"></span>
+      <span id="sync-text-inicio">Sincronizado</span>
+    </div>
+  </div>
+  <div class="content">
+    <div class="balance-grid">
+      <div class="balance-card marido">
+        <div class="bc-label">👔 MARIDO</div>
+        <div class="bc-amount" id="saldo-marido">R$ 0</div>
+        <div class="bc-sub">
+          <span id="rec-marido">↑ R$ 0</span>
+          <span id="desp-marido">↓ R$ 0</span>
+        </div>
+      </div>
+      <div class="balance-card esposa">
+        <div class="bc-label">👜 ESPOSA</div>
+        <div class="bc-amount" id="saldo-esposa">R$ 0</div>
+        <div class="bc-sub">
+          <span id="rec-esposa">↑ R$ 0</span>
+          <span id="desp-esposa">↓ R$ 0</span>
+        </div>
+      </div>
+      <div class="balance-card casa">
+        <div class="bc-label">🏠 CASA</div>
+        <div class="bc-amount" id="saldo-casa">R$ 0</div>
+        <div class="bc-sub">
+          <span id="rec-casa">↑ R$ 0</span>
+          <span id="desp-casa">↓ R$ 0</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">🕐 Últimos lançamentos</div>
+        <button class="btn-sm" onclick="showPage('lancamentos')" style="background:#F1F5F9;color:#64748B">Ver todos</button>
+      </div>
+      <div id="home-transactions"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">🎯 Metas</div>
+        <button class="btn-sm" onclick="showPage('metas')" style="background:#F1F5F9;color:#64748B">Ver todas</button>
+      </div>
+      <div id="home-goals"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── PAGE: LANÇAMENTOS ── -->
+<div id="page-lancamentos" class="page">
+  <div class="page-header">
+    <h1>📋 Lançamentos</h1>
+    <p id="lancamentos-header-label"></p>
+  </div>
+  <div class="content">
+    <div class="month-picker">
+      <button onclick="changeMonth(-1)">‹</button>
+      <span id="month-display-lanc"></span>
+      <button onclick="changeMonth(1)">›</button>
+    </div>
+    <div class="filter-tabs">
+      <div class="filter-tab active-todos" id="ft-todos" onclick="setFilter('todos')">Todos</div>
+      <div class="filter-tab" id="ft-marido" onclick="setFilter('marido')">👔 Marido</div>
+      <div class="filter-tab" id="ft-esposa" onclick="setFilter('esposa')">👜 Esposa</div>
+      <div class="filter-tab" id="ft-casa" onclick="setFilter('casa')">🏠 Casa</div>
+    </div>
+    <div id="lancamentos-list"></div>
+  </div>
+</div>
+
+<!-- ── PAGE: RESUMO ── -->
+<div id="page-resumo" class="page">
+  <div class="page-header">
+    <h1>📊 Resumo</h1>
+    <p id="resumo-header-label"></p>
+  </div>
+  <div class="content">
+    <div class="month-picker">
+      <button onclick="changeMonth(-1)">‹</button>
+      <span id="month-display-resumo"></span>
+      <button onclick="changeMonth(1)">›</button>
+    </div>
+    <div id="resumo-marido-card"></div>
+    <div id="resumo-esposa-card"></div>
+    <div id="resumo-casa-card"></div>
+
+    <div class="section-label">Segurança</div>
+    <button class="pin-settings-btn" onclick="openChangePinFlow()">
+      <span class="eb-icon">🔐</span>
+      <div><div class="eb-title">Alterar PIN</div><div class="eb-desc">Mude o código de acesso ao app</div></div>
+    </button>
+
+    <div class="section-label">Exportar & Backup</div>
+    <button class="export-btn" onclick="exportExcel()">
+      <span class="eb-icon">📥</span>
+      <div><div class="eb-title">Exportar mês para Excel</div><div class="eb-desc">Baixar planilha do mês atual</div></div>
+    </button>
+    <button class="export-btn" onclick="exportAllExcel()">
+      <span class="eb-icon">📊</span>
+      <div><div class="eb-title">Exportar ano completo</div><div class="eb-desc">Planilha com todos os meses registrados</div></div>
+    </button>
+    <button class="export-btn" onclick="backupData()">
+      <span class="eb-icon">💾</span>
+      <div><div class="eb-title">Backup dos dados</div><div class="eb-desc">Salvar JSON para sincronizar dispositivos</div></div>
+    </button>
+    <button class="export-btn" onclick="document.getElementById('restore-input').click()">
+      <span class="eb-icon">🔄</span>
+      <div><div class="eb-title">Restaurar backup</div><div class="eb-desc">Importar dados de outro dispositivo</div></div>
+    </button>
+    <input type="file" id="restore-input" accept=".json" class="hidden" onchange="restoreData(event)">
+  </div>
+</div>
+
+<!-- ── PAGE: METAS ── -->
+<div id="page-metas" class="page">
+  <div class="page-header">
+    <h1>🎯 Metas de Poupança</h1>
+    <p>Objetivos financeiros do casal</p>
+  </div>
+  <div class="content">
+    <div id="metas-list"></div>
+    <button class="btn btn-primary" onclick="openGoalModal()">+ Nova Meta</button>
+  </div>
+</div>
+
+<!-- ── NAV ── -->
+<nav class="nav-bottom">
+  <button class="nav-item active" id="nav-inicio" onclick="showPage('inicio')">
+    <span class="nav-icon">🏠</span>Início
+  </button>
+  <button class="nav-item" id="nav-lancamentos" onclick="showPage('lancamentos')">
+    <span class="nav-icon">📋</span>Lançamentos
+  </button>
+  <button class="nav-item" id="nav-resumo" onclick="showPage('resumo')">
+    <span class="nav-icon">📊</span>Resumo
+  </button>
+  <button class="nav-item" id="nav-metas" onclick="showPage('metas')">
+    <span class="nav-icon">🎯</span>Metas
+  </button>
+</nav>
+
+<button class="fab" onclick="openLancamentoModal()">+</button>
+
+<!-- ── MODAL: LANÇAMENTO ── -->
+<div class="modal-overlay" id="modal-lancamento" onclick="closeModalOverlay(event,'modal-lancamento')">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Novo Lançamento</div>
+
+    <div class="form-group">
+      <div class="form-label">Quem?</div>
+      <div class="segment" id="seg-person">
+        <button class="segment-btn active" onclick="selectPerson('marido',this)">👔 Marido</button>
+        <button class="segment-btn" onclick="selectPerson('esposa',this)">👜 Esposa</button>
+        <button class="segment-btn" onclick="selectPerson('casa',this)">🏠 Casa</button>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <div class="type-toggle">
+        <button class="type-btn despesa active" id="btn-despesa" onclick="selectType('despesa')">↓ Despesa</button>
+        <button class="type-btn receita" id="btn-receita" onclick="selectType('receita')">↑ Receita</button>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <div class="form-label">Categoria</div>
+      <select class="form-control" id="input-category"></select>
+    </div>
+
+    <div class="form-group">
+      <div class="form-label">Descrição (opcional)</div>
+      <input type="text" class="form-control" id="input-desc" placeholder="Ex: Conta de luz de março" autocomplete="off">
+    </div>
+
+    <div class="form-group">
+      <div class="form-label">Valor (R$)</div>
+      <input type="number" class="form-control" id="input-amount" placeholder="0,00" step="0.01" min="0" inputmode="decimal">
+    </div>
+
+    <div class="form-group">
+      <div class="form-label">Data</div>
+      <input type="date" class="form-control" id="input-date">
+    </div>
+
+    <button class="btn btn-primary" onclick="saveLancamento()">✓ Salvar Lançamento</button>
+    <button class="btn btn-ghost" style="margin-top:8px" onclick="closeModal('modal-lancamento')">Cancelar</button>
+  </div>
+</div>
+
+<!-- ── MODAL: META ── -->
+<div class="modal-overlay" id="modal-goal" onclick="closeModalOverlay(event,'modal-goal')">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="goal-modal-title">Nova Meta</div>
+
+    <div class="form-group">
+      <div class="form-label">Nome da meta</div>
+      <input type="text" class="form-control" id="goal-name" placeholder="Ex: Viagem para Europa">
+    </div>
+    <div class="form-group">
+      <div class="form-label">Valor objetivo (R$)</div>
+      <input type="number" class="form-control" id="goal-target" placeholder="0,00" step="0.01" min="0" inputmode="decimal">
+    </div>
+    <div class="form-group">
+      <div class="form-label">Valor já poupado (R$)</div>
+      <input type="number" class="form-control" id="goal-saved-input" placeholder="0,00" step="0.01" min="0" inputmode="decimal">
+    </div>
+    <div class="form-group">
+      <div class="form-label">Prazo (mês/ano)</div>
+      <input type="month" class="form-control" id="goal-deadline">
+    </div>
+
+    <button class="btn btn-primary" onclick="saveGoal()">✓ Salvar Meta</button>
+    <button class="btn btn-ghost" style="margin-top:8px" onclick="closeModal('modal-goal')">Cancelar</button>
+  </div>
+</div>
+
+<!-- ── MODAL: APORTE ── -->
+<div class="modal-overlay" id="modal-contribution" onclick="closeModalOverlay(event,'modal-contribution')">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="contribution-title">Adicionar Aporte</div>
+
+    <div class="form-group">
+      <div class="form-label">Valor do aporte (R$)</div>
+      <input type="number" class="form-control" id="contribution-amount" placeholder="0,00" step="0.01" min="0" inputmode="decimal">
+    </div>
+    <div class="form-group">
+      <div class="form-label">Data</div>
+      <input type="date" class="form-control" id="contribution-date">
+    </div>
+
+    <button class="btn btn-primary" onclick="saveContribution()">✓ Adicionar Aporte</button>
+    <button class="btn btn-ghost" style="margin-top:8px" onclick="closeModal('modal-contribution')">Cancelar</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- SheetJS for Excel export -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- MSAL.js for Microsoft authentication -->
+<script src="https://alcdn.msauth.net/browser/2.39.0/js/msal-browser.min.js"></script>
+<!-- Excel Sync — integração com tabela Excel no OneDrive -->
+<script src="excelSync.js"></script>
+
+<script>
+// ═══════════════════════════════════════════════════
+//  DATA STORE
+// ═══════════════════════════════════════════════════
+let appData = JSON.parse(localStorage.getItem('financas_casal_v2') || '{"transactions":[],"goals":[]}');
+
+// State
+let currentPage = 'inicio';
+let currentMonth = getTodayMonth();
+let currentFilter = 'todos';
+let currentPerson = 'marido';
+let currentType = 'despesa';
+let editingGoalId = null;
+let contributingGoalId = null;
+
+// ═══════════════════════════════════════════════════
+//  CONSTANTS
+// ═══════════════════════════════════════════════════
+const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+// Categorias alinhadas com a PLANILHA FINANCEIRA CASAL 2026.xlsx
+const CATEGORIES = {
+  marido: {
+    despesa: ['Transporte','Alimentação','Saúde','Educação','Lazer Pessoal','Assinaturas','Cuidados Pessoais','Presentes','Hobbies','Pets','Outros'],
+    receita: ['Salário','Renda Extra','Outros']
+  },
+  esposa: {
+    despesa: ['Transporte','Alimentação','Saúde','Educação','Lazer Pessoal','Assinaturas','Cuidados Pessoais','Presentes','Hobbies','Pets','Outros'],
+    receita: ['Salário','Renda Extra','Outros']
+  },
+  casa: {
+    despesa: ['Aluguel/Financiamento','Condomínio','Energia','Água','Gás','Internet/TV','Supermercado','Limpeza','Manutenção','Escola dos Filhos','Outros'],
+    receita: ['Contribuição Marido','Contribuição Esposa','Aluguel Recebido','Outros']
+  }
+};
+
+const CAT_ICONS = {
+  'Transporte':'🚗','Alimentação':'🍽️','Saúde':'🏥','Educação':'📚',
+  'Lazer Pessoal':'🎉','Assinaturas':'📱','Cuidados Pessoais':'💆',
+  'Presentes':'🎁','Hobbies':'🎨','Pets':'🐾',
+  'Salário':'💰','Renda Extra':'💵','Outros':'📌',
+  'Aluguel/Financiamento':'🏠','Condomínio':'🏢','Energia':'⚡','Água':'💧',
+  'Gás':'🔥','Internet/TV':'📡','Supermercado':'🛒','Limpeza':'🧹',
+  'Manutenção':'🔧','Escola dos Filhos':'🎒','Contribuição Marido':'👔',
+  'Contribuição Esposa':'👜','Aluguel Recebido':'🏠'
+};
+
+const PERSON_COLORS = { marido:'#2563EB', esposa:'#DB2777', casa:'#16A34A' };
+const PERSON_BG = { marido:'#EFF6FF', esposa:'#FDF2F8', casa:'#F0FDF4' };
+
+// ═══════════════════════════════════════════════════
+//  UTILS
+// ═══════════════════════════════════════════════════
+function fmt(n) {
+  return 'R$ ' + Math.abs(n).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function fmtSigned(n) {
+  return (n >= 0 ? '+' : '-') + ' ' + fmt(n);
+}
+
+function monthLabel(ym) {
+  const [y, m] = ym.split('-');
+  return MONTHS_PT[parseInt(m) - 1] + ' de ' + y;
+}
+
+function getTodayMonth() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+}
+
+function getTodayDate() {
+  return new Date().toISOString().split('T')[0];
+}
+
+function uuid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2);
+}
+
+function saveData() {
+  localStorage.setItem('financas_casal_v2', JSON.stringify(appData));
+  scheduleSync(); // sincroniza com OneDrive se configurado
+}
+
+function showToast(msg, duration = 2500) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), duration);
+}
+
+function calcSummary(month, person) {
+  const txs = appData.transactions.filter(t => t.month === month && t.person === person);
+  const receitas = txs.filter(t => t.type === 'receita').reduce((a, t) => a + t.amount, 0);
+  const despesas = txs.filter(t => t.type === 'despesa').reduce((a, t) => a + t.amount, 0);
+  return { receitas, despesas, saldo: receitas - despesas, txs };
+}
+
+function monthsDiff(from, to) {
+  const [fy, fm] = from.split('-').map(Number);
+  const [ty, tm] = to.split('-').map(Number);
+  return (ty - fy) * 12 + (tm - fm);
+}
+
+// ═══════════════════════════════════════════════════
+//  NAVIGATION
+// ═══════════════════════════════════════════════════
+function showPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const navEl = document.getElementById('nav-' + page);
+  if (navEl) navEl.classList.add('active');
+  currentPage = page;
+  renderPage(page);
+  window.scrollTo(0, 0);
+}
+
+function renderPage(page) {
+  if (page === 'inicio') renderInicio();
+  else if (page === 'lancamentos') renderLancamentos();
+  else if (page === 'resumo') renderResumo();
+  else if (page === 'metas') renderMetas();
+}
+
+function changeMonth(delta) {
+  const [y, m] = currentMonth.split('-').map(Number);
+  const d = new Date(y, m - 1 + delta);
+  currentMonth = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  renderPage(currentPage);
+}
+
+// ═══════════════════════════════════════════════════
+//  RENDER: INÍCIO
+// ═══════════════════════════════════════════════════
+function renderInicio() {
+  const month = getTodayMonth();
+  document.getElementById('header-month-label').textContent = monthLabel(month);
+
+  ['marido', 'esposa', 'casa'].forEach(p => {
+    const s = calcSummary(month, p);
+    const saldoEl = document.getElementById('saldo-' + p);
+    saldoEl.textContent = fmt(s.saldo);
+    saldoEl.style.color = s.saldo >= 0 ? 'white' : '#FCA5A5';
+    document.getElementById('rec-' + p).textContent = '↑ ' + fmt(s.receitas);
+    document.getElementById('desp-' + p).textContent = '↓ ' + fmt(s.despesas);
+  });
+
+  // Recent txs
+  const recent = appData.transactions
+    .filter(t => t.month === month)
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, 5);
+
+  const htEl = document.getElementById('home-transactions');
+  htEl.innerHTML = recent.length === 0
+    ? `<div class="empty-state"><div class="emoji">📝</div><p>Nenhum lançamento ainda.<br>Toque em <strong>+</strong> para adicionar.</p></div>`
+    : recent.map(t => renderTxHTML(t)).join('');
+
+  // Goals preview
+  const hgEl = document.getElementById('home-goals');
+  hgEl.innerHTML = appData.goals.length === 0
+    ? `<div class="empty-state"><div class="emoji">🎯</div><p>Nenhuma meta cadastrada.<br>Crie objetivos de poupança!</p></div>`
+    : appData.goals.slice(0, 3).map(g => renderGoalMiniHTML(g)).join('');
+}
+
+function renderTxHTML(t, deletable = false) {
+  const icon = CAT_ICONS[t.category] || (t.person === 'marido' ? '👔' : t.person === 'esposa' ? '👜' : '🏠');
+  const sign = t.type === 'receita' ? '+' : '-';
+  const cls = t.type === 'receita' ? 'receita' : 'despesa';
+  const [yy, mm, dd] = t.date.split('-');
+  const onclick = deletable ? `onlongpress` : '';
+  return `
+    <div class="tx-item" onclick="${deletable ? `if(confirm('Excluir este lançamento?')){deleteTx('${t.id}')}` : ''}">
+      <div class="tx-icon" style="background:${PERSON_BG[t.person]};color:${PERSON_COLORS[t.person]}">${icon}</div>
+      <div class="tx-info">
+        <div class="tx-desc">${t.description || t.category}</div>
+        <div class="tx-meta">${t.category} · ${dd}/${mm}/${yy}</div>
+      </div>
+      <div class="tx-amount ${cls}">${sign} ${fmt(t.amount)}</div>
+    </div>`;
+}
+
+function renderGoalMiniHTML(g) {
+  const pct = Math.min(100, Math.round((g.saved / g.target) * 100));
+  return `
+    <div style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+        <span style="font-size:14px;font-weight:600">${g.name}</span>
+        <span style="font-size:13px;font-weight:700;color:#D97706">${pct}%</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:#64748B">
+        <span>${fmt(g.saved)}</span><span>de ${fmt(g.target)}</span>
+      </div>
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════════
+//  RENDER: LANÇAMENTOS
+// ═══════════════════════════════════════════════════
+function setFilter(f) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-tab').forEach(el => {
+    el.className = 'filter-tab';
+  });
+  document.getElementById('ft-' + f).className = 'filter-tab active-' + f;
+  renderLancamentos();
+}
+
+function renderLancamentos() {
+  document.getElementById('lancamentos-header-label').textContent = monthLabel(currentMonth);
+  document.getElementById('month-display-lanc').textContent = monthLabel(currentMonth);
+
+  let txs = appData.transactions.filter(t => t.month === currentMonth);
+  if (currentFilter !== 'todos') txs = txs.filter(t => t.person === currentFilter);
+  txs.sort((a, b) => b.date.localeCompare(a.date));
+
+  const el = document.getElementById('lancamentos-list');
+  if (txs.length === 0) {
+    el.innerHTML = `<div class="empty-state"><div class="emoji">📭</div><p>Nenhum lançamento<br>em ${monthLabel(currentMonth)}.</p></div>`;
+    return;
+  }
+
+  const byDate = {};
+  txs.forEach(t => { (byDate[t.date] = byDate[t.date] || []).push(t); });
+
+  el.innerHTML = Object.entries(byDate)
+    .sort((a, b) => b[0].localeCompare(a[0]))
+    .map(([date, items]) => {
+      const [yy, mm, dd] = date.split('-');
+      return `
+        <div class="date-group-label">${dd}/${mm}/${yy}</div>
+        <div class="card" style="padding:0 16px">
+          ${items.map(t => renderTxHTML(t, true)).join('')}
+        </div>`;
+    }).join('');
+}
+
+// ═══════════════════════════════════════════════════
+//  RENDER: RESUMO
+// ═══════════════════════════════════════════════════
+function renderResumo() {
+  document.getElementById('resumo-header-label').textContent = monthLabel(currentMonth);
+  document.getElementById('month-display-resumo').textContent = monthLabel(currentMonth);
+
+  const personInfo = [
+    { id: 'marido', label: '👔 Marido', color: 'var(--marido)' },
+    { id: 'esposa', label: '👜 Esposa', color: 'var(--esposa)' },
+    { id: 'casa',   label: '🏠 Casa',   color: 'var(--casa)'   }
+  ];
+
+  personInfo.forEach(({ id, label, color }) => {
+    const s = calcSummary(currentMonth, id);
+    const container = document.getElementById('resumo-' + id + '-card');
+
+    if (s.txs.length === 0) {
+      container.innerHTML = `
+        <div class="card">
+          <div class="card-title" style="color:${color};margin-bottom:10px">${label}</div>
+          <p style="color:#64748B;font-size:14px;text-align:center;padding:8px">Sem lançamentos neste mês.</p>
+        </div>`;
+      return;
+    }
+
+    const byCat = {};
+    s.txs.forEach(t => {
+      if (!byCat[t.category]) byCat[t.category] = { receita: 0, despesa: 0 };
+      byCat[t.category][t.type] += t.amount;
+    });
+
+    const catRows = Object.entries(byCat).map(([cat, vals]) => `
+      <div class="summary-row" style="padding-left:8px;font-size:13px">
+        <span style="color:#475569">${CAT_ICONS[cat] || '•'} ${cat}</span>
+        <div style="text-align:right">
+          ${vals.receita > 0 ? `<div style="color:#22C55E;font-size:12px">+${fmt(vals.receita)}</div>` : ''}
+          ${vals.despesa > 0 ? `<div style="color:#EF4444;font-size:12px">-${fmt(vals.despesa)}</div>` : ''}
+        </div>
+      </div>`).join('');
+
+    container.innerHTML = `
+      <div class="card">
+        <div class="card-header"><div class="card-title" style="color:${color}">${label}</div></div>
+        <div class="summary-row">
+          <span style="color:#22C55E">↑ Receitas</span>
+          <span style="color:#22C55E;font-weight:700">${fmt(s.receitas)}</span>
+        </div>
+        <div class="summary-row">
+          <span style="color:#EF4444">↓ Despesas</span>
+          <span style="color:#EF4444;font-weight:700">${fmt(s.despesas)}</span>
+        </div>
+        ${catRows}
+        <div class="summary-row summary-total">
+          <span>Saldo</span>
+          <span style="color:${s.saldo >= 0 ? '#22C55E' : '#EF4444'}">
+            ${s.saldo >= 0 ? '+' : '-'} ${fmt(s.saldo)}
+          </span>
+        </div>
+      </div>`;
+  });
+}
+
+// ═══════════════════════════════════════════════════
+//  RENDER: METAS
+// ═══════════════════════════════════════════════════
+function renderMetas() {
+  const el = document.getElementById('metas-list');
+  if (appData.goals.length === 0) {
+    el.innerHTML = `<div class="empty-state"><div class="emoji">🎯</div><p>Nenhuma meta cadastrada ainda.<br>Comece criando um objetivo!</p></div>`;
+    return;
+  }
+
+  el.innerHTML = appData.goals.map(g => {
+    const pct = Math.min(100, Math.round((g.saved / g.target) * 100));
+    const remaining = g.target - g.saved;
+    const today = getTodayMonth();
+    const mLeft = g.deadline ? monthsDiff(today, g.deadline) : null;
+    const monthly = (mLeft && mLeft > 0 && remaining > 0) ? remaining / mLeft : null;
+
+    return `
+      <div class="goal-card">
+        <div class="goal-header">
+          <div>
+            <div class="goal-name">${g.name}</div>
+            <div style="font-size:12px;color:#64748B;margin-top:2px">
+              ${g.deadline ? '📅 Prazo: ' + monthLabel(g.deadline) : 'Sem prazo definido'}
+            </div>
+          </div>
+          <div style="text-align:right">
+            <div class="goal-saved">${fmt(g.saved)}</div>
+            <div class="goal-target">de ${fmt(g.target)}</div>
+          </div>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+        <div class="goal-meta">
+          <span>${pct}% concluído</span>
+          <span>Faltam ${fmt(remaining)}</span>
+        </div>
+        ${monthly ? `<div class="goal-tip">💡 Guardar <strong>${fmt(monthly)}/mês</strong> para alcançar no prazo</div>` : ''}
+        ${pct >= 100 ? `<div style="background:#F0FDF4;color:#16A34A;padding:8px 10px;border-radius:8px;font-size:13px;font-weight:600;margin-top:8px;text-align:center">🎉 Meta alcançada!</div>` : ''}
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button class="btn-sm" onclick="openContributionModal('${g.id}')" style="background:#FFFBEB;color:#D97706;flex:1">+ Aporte</button>
+          <button class="btn-sm" onclick="openGoalModal('${g.id}')" style="background:#EFF6FF;color:#2563EB">✏️</button>
+          <button class="btn-sm" onclick="deleteGoal('${g.id}')" style="background:#FEF2F2;color:#EF4444">🗑️</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════
+//  MODAL HELPERS
+// ═══════════════════════════════════════════════════
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function closeModalOverlay(e, id) { if (e.target.classList.contains('modal-overlay')) closeModal(id); }
+
+// ═══════════════════════════════════════════════════
+//  LANÇAMENTO MODAL
+// ═══════════════════════════════════════════════════
+function openLancamentoModal() {
+  currentPerson = 'marido';
+  currentType = 'despesa';
+  document.getElementById('input-date').value = getTodayDate();
+  document.getElementById('input-amount').value = '';
+  document.getElementById('input-desc').value = '';
+  // Reset segment
+  document.querySelectorAll('#seg-person .segment-btn').forEach((b, i) => b.classList.toggle('active', i === 0));
+  document.getElementById('btn-despesa').classList.add('active');
+  document.getElementById('btn-receita').classList.remove('active');
+  updateCategories();
+  openModal('modal-lancamento');
+}
+
+function selectPerson(person, btn) {
+  currentPerson = person;
+  document.querySelectorAll('#seg-person .segment-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  updateCategories();
+}
+
+function selectType(type) {
+  currentType = type;
+  document.getElementById('btn-despesa').classList.toggle('active', type === 'despesa');
+  document.getElementById('btn-receita').classList.toggle('active', type === 'receita');
+  updateCategories();
+}
+
+function updateCategories() {
+  const cats = CATEGORIES[currentPerson]?.[currentType] || [];
+  document.getElementById('input-category').innerHTML = cats.map(c => `<option value="${c}">${c}</option>`).join('');
+}
+
+function saveLancamento() {
+  const amount = parseFloat(document.getElementById('input-amount').value);
+  const date = document.getElementById('input-date').value;
+  if (!amount || amount <= 0) { showToast('⚠️ Informe um valor válido'); return; }
+  if (!date) { showToast('⚠️ Informe a data'); return; }
+
+  const cat = document.getElementById('input-category').value;
+  const desc = document.getElementById('input-desc').value.trim();
+
+  appData.transactions.push({
+    id: uuid(), date, month: date.slice(0, 7),
+    person: currentPerson, type: currentType,
+    category: cat, description: desc || cat, amount
+  });
+
+  saveData();
+  closeModal('modal-lancamento');
+  showToast('✅ Lançamento salvo!');
+  renderPage(currentPage);
+
+  // Sincroniza linha na tabela Excel (não bloqueia a UI)
+  const txSnapshot = appData.transactions[appData.transactions.length - 1];
+  syncExcelRow(txSnapshot).then(result => {
+    if (!result.ok && result.error !== 'offline' && result.error !== 'sem_token') {
+      showToast('⚠️ Salvo localmente, mas falhou sincronizar com Excel.', 4000);
+    }
+  });
+}
+
+function deleteTx(txId) {
+  appData.transactions = appData.transactions.filter(t => t.id !== txId);
+  saveData();
+  renderPage(currentPage);
+  showToast('🗑️ Lançamento excluído');
+}
+
+// ═══════════════════════════════════════════════════
+//  GOAL MODAL
+// ═══════════════════════════════════════════════════
+function openGoalModal(goalId = null) {
+  editingGoalId = goalId;
+  if (goalId) {
+    const g = appData.goals.find(g => g.id === goalId);
+    document.getElementById('goal-modal-title').textContent = 'Editar Meta';
+    document.getElementById('goal-name').value = g.name;
+    document.getElementById('goal-target').value = g.target;
+    document.getElementById('goal-saved-input').value = g.saved;
+    document.getElementById('goal-deadline').value = g.deadline || '';
+  } else {
+    document.getElementById('goal-modal-title').textContent = 'Nova Meta';
+    document.getElementById('goal-name').value = '';
+    document.getElementById('goal-target').value = '';
+    document.getElementById('goal-saved-input').value = '0';
+    document.getElementById('goal-deadline').value = '';
+  }
+  openModal('modal-goal');
+}
+
+function saveGoal() {
+  const name = document.getElementById('goal-name').value.trim();
+  const target = parseFloat(document.getElementById('goal-target').value);
+  const saved = parseFloat(document.getElementById('goal-saved-input').value) || 0;
+  const deadline = document.getElementById('goal-deadline').value;
+
+  if (!name) { showToast('⚠️ Informe o nome da meta'); return; }
+  if (!target || target <= 0) { showToast('⚠️ Informe o valor objetivo'); return; }
+
+  if (editingGoalId) {
+    const g = appData.goals.find(g => g.id === editingGoalId);
+    Object.assign(g, { name, target, saved, deadline });
+  } else {
+    appData.goals.push({ id: uuid(), name, target, saved, deadline, contributions: [] });
+  }
+
+  saveData();
+  closeModal('modal-goal');
+  showToast('✅ Meta salva!');
+  renderMetas();
+}
+
+function deleteGoal(goalId) {
+  if (confirm('Excluir esta meta?')) {
+    appData.goals = appData.goals.filter(g => g.id !== goalId);
+    saveData();
+    renderMetas();
+    showToast('🗑️ Meta excluída');
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  CONTRIBUTION MODAL
+// ═══════════════════════════════════════════════════
+function openContributionModal(goalId) {
+  contributingGoalId = goalId;
+  const g = appData.goals.find(g => g.id === goalId);
+  document.getElementById('contribution-title').textContent = `💰 Aporte: ${g.name}`;
+  document.getElementById('contribution-amount').value = '';
+  document.getElementById('contribution-date').value = getTodayDate();
+  openModal('modal-contribution');
+}
+
+function saveContribution() {
+  const amount = parseFloat(document.getElementById('contribution-amount').value);
+  const date = document.getElementById('contribution-date').value;
+  if (!amount || amount <= 0) { showToast('⚠️ Informe um valor válido'); return; }
+
+  const g = appData.goals.find(g => g.id === contributingGoalId);
+  g.saved += amount;
+  g.contributions = g.contributions || [];
+  g.contributions.push({ date, amount, month: date.slice(0, 7) });
+
+  saveData();
+  closeModal('modal-contribution');
+  showToast(`✅ Aporte de ${fmt(amount)} adicionado!`);
+  renderMetas();
+}
+
+// ═══════════════════════════════════════════════════
+//  EXPORT
+// ═══════════════════════════════════════════════════
+function exportExcel() {
+  const wb = XLSX.utils.book_new();
+  const month = currentMonth;
+
+  [
+    { id: 'marido', label: 'Marido' },
+    { id: 'esposa', label: 'Esposa' },
+    { id: 'casa', label: 'Casa' }
+  ].forEach(({ id, label }) => {
+    const s = calcSummary(month, id);
+    const rows = [
+      [label.toUpperCase() + ' — ' + monthLabel(month)],
+      [],
+      ['Data', 'Tipo', 'Categoria', 'Descrição', 'Valor (R$)'],
+      ...s.txs.sort((a,b) => a.date.localeCompare(b.date)).map(t => [
+        t.date, t.type === 'receita' ? 'Receita' : 'Despesa',
+        t.category, t.description, t.amount
+      ]),
+      [],
+      ['', '', '', 'Total Receitas', s.receitas],
+      ['', '', '', 'Total Despesas', s.despesas],
+      ['', '', '', 'Saldo', s.saldo],
+    ];
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), label);
+  });
+
+  // Goals
+  const goalRows = [
+    ['METAS DE POUPANÇA'],
+    [],
+    ['Meta', 'Objetivo (R$)', 'Poupado (R$)', 'Progresso %', 'Falta (R$)', 'Prazo'],
+    ...appData.goals.map(g => [
+      g.name, g.target, g.saved,
+      Math.round((g.saved / g.target) * 100) + '%',
+      Math.max(0, g.target - g.saved),
+      g.deadline || 'Sem prazo'
+    ])
+  ];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(goalRows), 'Metas');
+
+  XLSX.writeFile(wb, `Financas_Casal_${month}.xlsx`);
+  showToast('📥 Excel exportado com sucesso!');
+}
+
+function exportAllExcel() {
+  const wb = XLSX.utils.book_new();
+  const months = [...new Set(appData.transactions.map(t => t.month))].sort();
+
+  if (months.length === 0) { showToast('⚠️ Nenhum dado para exportar'); return; }
+
+  // Summary tab
+  const summaryRows = [['MÊS', 'MARIDO RECEITAS', 'MARIDO DESPESAS', 'MARIDO SALDO', 'ESPOSA RECEITAS', 'ESPOSA DESPESAS', 'ESPOSA SALDO', 'CASA RECEITAS', 'CASA DESPESAS', 'CASA SALDO']];
+  months.forEach(m => {
+    const row = [monthLabel(m)];
+    ['marido','esposa','casa'].forEach(p => {
+      const s = calcSummary(m, p);
+      row.push(s.receitas, s.despesas, s.saldo);
+    });
+    summaryRows.push(row);
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryRows), 'Resumo Anual');
+
+  months.forEach(m => {
+    ['marido','esposa','casa'].forEach(p => {
+      const s = calcSummary(m, p);
+      if (s.txs.length === 0) return;
+      const sheetName = (m.replace('-','_') + '_' + p).slice(0, 31);
+      const rows = [
+        ['Data','Tipo','Categoria','Descrição','Valor (R$)'],
+        ...s.txs.map(t => [t.date, t.type === 'receita' ? 'Receita' : 'Despesa', t.category, t.description, t.amount])
+      ];
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), sheetName);
+    });
+  });
+
+  XLSX.writeFile(wb, 'Financas_Casal_Ano_Completo.xlsx');
+  showToast('📊 Exportação completa!');
+}
+
+function backupData() {
+  const blob = new Blob([JSON.stringify(appData, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `backup_financas_${getTodayDate()}.json`;
+  a.click();
+  showToast('💾 Backup salvo!');
+}
+
+function restoreData(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const restored = JSON.parse(e.target.result);
+      if (restored.transactions && restored.goals) {
+        appData = restored;
+        saveData();
+        renderPage(currentPage);
+        showToast('✅ Dados restaurados com sucesso!');
+      } else {
+        showToast('⚠️ Arquivo inválido');
+      }
+    } catch {
+      showToast('⚠️ Erro ao importar backup');
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+// ═══════════════════════════════════════════════════
+//  PIN PROTECTION
+// ═══════════════════════════════════════════════════
+const DEFAULT_PIN = '1234';
+let pinBuffer = '';
+let pinMode = 'unlock';   // 'unlock' | 'set-new' | 'confirm-new'
+let pinNewTemp = '';
+
+function getStoredPin() {
+  return localStorage.getItem('app_pin') || DEFAULT_PIN;
+}
+
+function pinPress(digit) {
+  if (pinBuffer.length >= 4) return;
+  pinBuffer += digit;
+  updatePinDots();
+  if (pinBuffer.length === 4) {
+    setTimeout(() => evaluatePin(), 120);
+  }
+}
+
+function pinDel() {
+  pinBuffer = pinBuffer.slice(0, -1);
+  updatePinDots();
+}
+
+function updatePinDots(state = 'normal') {
+  for (let i = 0; i < 4; i++) {
+    const dot = document.getElementById('pd' + i);
+    dot.classList.remove('filled', 'error');
+    if (state === 'error') dot.classList.add('error');
+    else if (i < pinBuffer.length) dot.classList.add('filled');
+  }
+}
+
+function evaluatePin() {
+  if (pinMode === 'unlock') {
+    if (pinBuffer === getStoredPin()) {
+      document.getElementById('pin-screen').classList.add('hidden');
+      if (!isMSALReady) { isMSALReady = true; initMSAL(); }
+    } else {
+      showPinError('PIN incorreto. Tente novamente.');
+    }
+  } else if (pinMode === 'set-new') {
+    if (pinBuffer.length === 4) {
+      pinNewTemp = pinBuffer;
+      pinBuffer = '';
+      pinMode = 'confirm-new';
+      document.getElementById('pin-subtitle').textContent = 'Confirme o novo PIN';
+      updatePinDots();
+      document.getElementById('pin-error').textContent = '';
+    }
+  } else if (pinMode === 'confirm-new') {
+    if (pinBuffer === pinNewTemp) {
+      localStorage.setItem('app_pin', pinBuffer);
+      pinMode = 'unlock';
+      pinBuffer = '';
+      document.getElementById('pin-screen').classList.add('hidden');
+      showToast('🔐 PIN alterado com sucesso!');
+    } else {
+      pinNewTemp = '';
+      pinMode = 'set-new';
+      showPinError('PINs não coincidem. Tente novamente.');
+      document.getElementById('pin-subtitle').textContent = 'Digite o novo PIN';
+    }
+  }
+}
+
+function showPinError(msg) {
+  updatePinDots('error');
+  document.getElementById('pin-error').textContent = msg;
+  setTimeout(() => {
+    pinBuffer = '';
+    updatePinDots();
+    document.getElementById('pin-error').textContent = '';
+  }, 1200);
+}
+
+function openChangePinFlow() {
+  pinBuffer = '';
+  pinMode = 'set-new';
+  pinNewTemp = '';
+  updatePinDots();
+  document.getElementById('pin-subtitle').textContent = 'Digite o novo PIN';
+  document.getElementById('pin-error').textContent = '';
+  document.getElementById('pin-screen').classList.remove('hidden');
+}
+
+// ── Handle physical keyboard on desktop ──
+document.addEventListener('keydown', e => {
+  if (!document.getElementById('pin-screen').classList.contains('hidden')) {
+    if (e.key >= '0' && e.key <= '9') pinPress(e.key);
+    if (e.key === 'Backspace') pinDel();
+  }
+});
+
+// ═══════════════════════════════════════════════════
+//  ONEDRIVE / MSAL INTEGRATION
+// ═══════════════════════════════════════════════════
+
+// ── CONFIGURAÇÃO ── Client ID do Azure
+const CLIENT_ID    = 'd1770348-0816-49b0-b2c0-e22b2c1220c3';
+const GRAPH_SCOPES = ['Files.ReadWrite', 'User.Read'];
+
+// Caminho do arquivo Excel no OneDrive (pasta Documentos)
+const EXCEL_FILE  = 'Documentos/PLANILHA FINANCEIRA CASAL 2026.xlsx';
+const EXCEL_EPATH = EXCEL_FILE.split('/').map(encodeURIComponent).join('/');
+
+// Mapeamento mês → nome da aba na planilha
+const SHEET_NAMES = {
+  3:'Mar 2026', 4:'Abr 2026', 5:'Mai 2026', 6:'Jun 2026',
+  7:'Jul 2026', 8:'Ago 2026', 9:'Set 2026', 10:'Out 2026',
+  11:'Nov 2026', 12:'Dez 2026'
+};
+
+// Mapeamento categoria → célula Realizado (C=Marido, H=Esposa)
+// Estrutura confirmada: B=Planejado Marido, C=Realizado Marido, H=Realizado Esposa
+const CELL_MAP = {
+  receita: {
+    'Salário':     { marido:'C5',  esposa:'H5'  },
+    'Renda Extra': { marido:'C6',  esposa:'H6'  },
+    'Outros':      { marido:'C7',  esposa:'H7'  },
+  },
+  despesa: {
+    'Transporte':        { marido:'C12', esposa:'H12' },
+    'Alimentação':       { marido:'C13', esposa:'H13' },
+    'Saúde':             { marido:'C14', esposa:'H14' },
+    'Educação':          { marido:'C15', esposa:'H15' },
+    'Lazer Pessoal':     { marido:'C16', esposa:'H16' },
+    'Assinaturas':       { marido:'C17', esposa:'H17' },
+    'Cuidados Pessoais': { marido:'C18', esposa:'H18' },
+    'Presentes':         { marido:'C19', esposa:'H19' },
+    'Hobbies':           { marido:'C20', esposa:'H20' },
+    'Pets':              { marido:'C21', esposa:'H21' },
+  }
+};
+
+let msalInstance = null;
+let graphToken    = null;
+let syncTimeout   = null;
+let isMSALReady   = false;
+
+// ── Verifica se o Client ID foi configurado ──
+function isConfigured() {
+  return CLIENT_ID !== 'SEU_CLIENT_ID_AQUI' && CLIENT_ID.length > 10;
+}
+
+// ── Inicializa MSAL ──
+async function initMSAL() {
+  if (!isConfigured()) {
+    // Sem Client ID → mostra aviso na tela de Resumo mas não bloqueia o app
+    console.warn('Client ID não configurado. Rodando em modo local.');
+    isMSALReady = false;
+    addConfigWarning();
+    return;
+  }
+
+  try {
+    msalInstance = new msal.PublicClientApplication({
+      auth: {
+        clientId: CLIENT_ID,
+        authority: 'https://login.microsoftonline.com/common',
+        redirectUri: window.location.href.split('?')[0].split('#')[0],
+      },
+      cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: true }
+    });
+
+    await msalInstance.initialize();
+
+    // Trata o redirect de volta do login
+    const response = await msalInstance.handleRedirectPromise();
+    if (response) {
+      graphToken = response.accessToken;
+      await onLoginSuccess(response.account);
+      return;
+    }
+
+    // Verifica se já há conta logada
+    const accounts = msalInstance.getAllAccounts();
+    if (accounts.length > 0) {
+      try {
+        const silent = await msalInstance.acquireTokenSilent({
+          scopes: GRAPH_SCOPES, account: accounts[0]
+        });
+        graphToken = silent.accessToken;
+        await onLoginSuccess(accounts[0]);
+      } catch {
+        showLoginScreen();
+      }
+    } else {
+      showLoginScreen();
+    }
+    isMSALReady = true;
+  } catch (err) {
+    console.error('Erro MSAL:', err);
+    isMSALReady = false;
+  }
+}
+
+function addConfigWarning() {
+  const container = document.getElementById('resumo-marido-card');
+  if (!container) return;
+  const warn = document.createElement('div');
+  warn.className = 'config-warning';
+  warn.innerHTML = `
+    <p>⚠️ <strong>OneDrive não configurado.</strong> O app está funcionando em modo local (dados salvos só neste navegador).
+    Para ativar a sincronização com o OneDrive, edite o arquivo HTML e substitua o valor de <strong>CLIENT_ID</strong> pelo seu ID de aplicativo do Azure.</p>
+    <code>const CLIENT_ID = 'SEU_CLIENT_ID_AQUI';</code>`;
+  container.prepend(warn);
+}
+
+function showLoginScreen() {
+  document.getElementById('login-screen').classList.remove('hidden');
+}
+
+async function loginWithMicrosoft() {
+  if (!msalInstance) return;
+  await msalInstance.loginRedirect({ scopes: GRAPH_SCOPES });
+}
+
+async function onLoginSuccess(account) {
+  document.getElementById('login-screen').classList.add('hidden');
+  setSyncStatus('loading');
+  showSyncBadge(true);
+  await loadFromExcel();
+}
+
+// ════════════════════════════════════════════════
+//  EXCEL — verifica se a planilha existe no OneDrive
+// ════════════════════════════════════════════════
+async function loadFromExcel() {
+  if (!graphToken) return;
+  setSyncStatus('loading');
+  try {
+    // Apenas verifica se o arquivo existe (não modifica nada nele)
+    const url = `https://graph.microsoft.com/v1.0/me/drive/root:/${EXCEL_EPATH}:/workbook`;
+    const res  = await fetch(url, { headers: { Authorization: `Bearer ${graphToken}` } });
+
+    if (res.ok) {
+      setSyncStatus('synced');
+      // Os lançamentos individuais ficam no localStorage (histórico do app)
+      // A planilha recebe os TOTAIS por categoria ao sincronizar
+    } else if (res.status === 404) {
+      setSyncStatus('error');
+      alert('⚠️ Arquivo "PLANILHA FINANCEIRA CASAL 2026.xlsx" não encontrado na pasta Documentos do seu OneDrive.\n\nVerifique se o arquivo está na pasta correta e tente novamente.');
+    } else if (res.status === 401) {
+      await refreshToken();
+      return;
+    } else {
+      setSyncStatus('error');
+    }
+  } catch(e) {
+    console.error('Erro ao acessar planilha:', e);
+    setSyncStatus('error');
+  }
+  renderPage(currentPage);
+}
+
+// ════════════════════════════════════════════════
+//  EXCEL — atualiza célula individual via Graph API
+// ════════════════════════════════════════════════
+async function patchCell(sheetName, cell, value) {
+  // Usa a API de workbook do Graph para escrever diretamente na célula
+  const url = `https://graph.microsoft.com/v1.0/me/drive/root:/${EXCEL_EPATH}:/workbook/worksheets('${encodeURIComponent(sheetName)}')/range(address='${cell}')`;
+  const res  = await fetch(url, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${graphToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ values: [[value]] })
+  });
+  return res.ok;
+}
+
+// ════════════════════════════════════════════════
+//  EXCEL — calcula totais e grava nas células certas
+// ════════════════════════════════════════════════
+async function saveToExcel(silent = false) {
+  if (!graphToken) return;
+  if (!silent) setSyncStatus('syncing');
+
+  try {
+    // 1. Agrupa lançamentos: chave = "sheetName||célula" → soma dos valores
+    const totais = {};
+    for (const t of appData.transactions) {
+      if (t.ano !== 2026) continue;                      // planilha só tem 2026
+      const sheet = SHEET_NAMES[t.mes];
+      if (!sheet) continue;                              // mês fora do range
+      const mapa  = CELL_MAP[t.tipo]?.[t.categoria];
+      if (!mapa)  continue;                              // categoria não mapeada
+      const cel   = t.pessoa === 'marido' ? mapa.marido : mapa.esposa;
+      const chave = `${sheet}||${cel}`;
+      totais[chave] = (totais[chave] || 0) + t.valor;
+    }
+
+    // 2. Grava cada total na célula correspondente da planilha
+    const promises = Object.entries(totais).map(([chave, valor]) => {
+      const [sheet, cel] = chave.split('||');
+      return patchCell(sheet, cel, valor);
+    });
+    const resultados = await Promise.all(promises);
+
+    const algumErro = resultados.some(r => r === false);
+    setSyncStatus(algumErro ? 'error' : 'synced');
+  } catch(e) {
+    console.error('Erro ao gravar na planilha:', e);
+    setSyncStatus('error');
+  }
+}
+
+// ── Renova token silenciosamente ──
+async function refreshToken() {
+  if (!msalInstance) return;
+  const accounts = msalInstance.getAllAccounts();
+  if (!accounts.length) { showLoginScreen(); return; }
+  try {
+    const res = await msalInstance.acquireTokenSilent({ scopes: GRAPH_SCOPES, account: accounts[0] });
+    graphToken = res.accessToken;
+    await loadFromExcel();
+  } catch {
+    showLoginScreen();
+  }
+}
+
+// ── Agenda sincronização com a planilha (debounced 2s) ──
+function scheduleSync() {
+  if (!graphToken) return;
+  setSyncStatus('syncing');
+  clearTimeout(syncTimeout);
+  syncTimeout = setTimeout(() => saveToExcel(), 2000);
+}
+
+// ── Status visual de sincronização ──
+function setSyncStatus(status) {
+  const configs = {
+    loading: { text: 'Carregando...', pulse: true,  color: 'rgba(255,255,255,0.7)' },
+    syncing: { text: 'Sincronizando...', pulse: true,  color: '#FCD34D' },
+    synced:  { text: 'Sincronizado ✓',  pulse: false, color: '#86EFAC' },
+    error:   { text: 'Sem conexão ⚠️',  pulse: false, color: '#FCA5A5' },
+  };
+  const c = configs[status] || configs.synced;
+  document.querySelectorAll('[id^="sync-text-"]').forEach(el => el.textContent = c.text);
+  document.querySelectorAll('[id^="sync-dot-"]').forEach(el => {
+    el.style.color = c.color;
+    el.classList.toggle('pulse', c.pulse);
+  });
+  document.querySelectorAll('.sync-badge').forEach(el => el.style.color = c.color);
+}
+
+function showSyncBadge(show) {
+  document.querySelectorAll('[id^="sync-badge-"]').forEach(el => el.classList.toggle('hidden', !show));
+}
+
+// ═══════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════
+updateCategories();
+renderInicio();
+// Se o PIN já estava desbloqueado (sem tela de pin ativa), inicia MSAL direto
+// Caso contrário, o initMSAL() é chamado dentro de evaluatePin() após o PIN correto
+if (document.getElementById('pin-screen').classList.contains('hidden')) {
+  isMSALReady = true;
+  initMSAL();
+}
+</script>
+</body>
+</html>

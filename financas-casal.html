@@ -734,8 +734,13 @@
 
 <!-- SheetJS for Excel export -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<!-- MSAL.js for Microsoft authentication -->
-<script src="https://alcdn.msauth.net/browser/2.39.0/js/msal-browser.min.js"></script>
+<!-- MSAL.js for Microsoft authentication (jsDelivr CDN, com fallback para alcdn) -->
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.39.0/lib/msal-browser.min.js"></script>
+<script>
+  if (typeof msal === 'undefined') {
+    document.write('<script src="https://alcdn.msauth.net/browser/2.39.0/js/msal-browser.min.js"><\/script>');
+  }
+</script>
 <!-- Excel Sync — integração com tabela Excel no OneDrive -->
 <script src="excelSync.js"></script>
 

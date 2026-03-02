@@ -1598,7 +1598,17 @@ function updateMsAccountUI(account) {
 
 // ── Botão único: conecta se desconectado, desconecta se conectado ──
 async function msConnectOrDisconnect() {
-  if (!msalInstance) { showToast('⚠️ MSAL não inicializado'); return; }
+  // Se o MSAL ainda não foi inicializado (ex: clicou antes do PIN),
+  // inicializa agora e só então tenta logar.
+  if (!msalInstance) {
+    const btnEl = document.getElementById('ms-connect-btn');
+    if (btnEl) { btnEl.textContent = 'Aguarde...'; btnEl.disabled = true; }
+    await initMSAL();
+    if (btnEl) { btnEl.disabled = false; }
+    // Se initMSAL já logou silenciosamente, não precisa continuar
+    if (msalInstance && msalInstance.getAllAccounts().length > 0) return;
+  }
+  if (!msalInstance) { showToast('⚠️ Não foi possível inicializar o login Microsoft.'); return; }
   const accounts = msalInstance.getAllAccounts();
   if (accounts.length > 0) {
     await msLogout();

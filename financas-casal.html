@@ -732,17 +732,65 @@
 
 <div class="toast" id="toast"></div>
 
-<!-- SheetJS for Excel export -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<!-- MSAL.js for Microsoft authentication (jsDelivr CDN, com fallback para alcdn) -->
-<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.39.0/lib/msal-browser.min.js"></script>
-<script>
-  if (typeof msal === 'undefined') {
-    document.write('<script src="https://alcdn.msauth.net/browser/2.39.0/js/msal-browser.min.js"><\/script>');
-  }
-</script>
+<!-- SheetJS for Excel export (defer: não precisa bloquear o parser) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
 <!-- Excel Sync — integração com tabela Excel no OneDrive -->
-<script src="excelSync.js"></script>
+<script src="excelSync.js" defer></script>
+<!-- MSAL.js loader robusto: jsDelivr primário, alcdn fallback -->
+<script>
+(function () {
+  const MSAL_PRIMARY  = 'https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.39.0/lib/msal-browser.min.js';
+  const MSAL_FALLBACK = 'https://alcdn.msauth.net/browser/2.39.0/js/msal-browser.min.js';
+
+  function setConnectBtn(enabled, label) {
+    // Pode ser chamado antes do DOM estar pronto; usa requestAnimationFrame como guard
+    function _set() {
+      const btn = document.getElementById('ms-connect-btn');
+      if (!btn) return;
+      btn.disabled = !enabled;
+      if (label) btn.textContent = label;
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', _set, { once: true });
+    } else {
+      _set();
+    }
+  }
+
+  function loadScript(url, onSuccess, onError) {
+    const s = document.createElement('script');
+    s.src = url;
+    s.onload  = onSuccess;
+    s.onerror = onError;
+    document.head.appendChild(s);
+  }
+
+  // Desabilita o botão enquanto carrega
+  setConnectBtn(false, 'Carregando...');
+
+  loadScript(
+    MSAL_PRIMARY,
+    function () {
+      console.info('[MSAL] Carregado via jsDelivr:', MSAL_PRIMARY);
+      setConnectBtn(true, 'Conectar');
+    },
+    function () {
+      console.warn('[MSAL] jsDelivr falhou. Tentando fallback:', MSAL_FALLBACK);
+      loadScript(
+        MSAL_FALLBACK,
+        function () {
+          console.info('[MSAL] Carregado via fallback (alcdn):', MSAL_FALLBACK);
+          setConnectBtn(true, 'Conectar');
+        },
+        function () {
+          console.error('[MSAL] Ambas as CDNs falharam. Login Microsoft indisponível.');
+          setConnectBtn(false, 'Indisponível');
+        }
+      );
+    }
+  );
+})();
+</script>
 
 <script>
 // ═══════════════════════════════════════════════════
@@ -1406,7 +1454,18 @@ function evaluatePin() {
   if (pinMode === 'unlock') {
     if (pinBuffer === getStoredPin()) {
       document.getElementById('pin-screen').classList.add('hidden');
-      if (!isMSALReady) { isMSALReady = true; initMSAL(); }
+      if (!isMSALReady) {
+        isMSALReady = true;
+        // Aguarda MSAL estar carregado antes de inicializar
+        if (typeof window.msal !== 'undefined') {
+          initMSAL();
+        } else {
+          const waitAndInit = () => typeof window.msal !== 'undefined'
+            ? initMSAL()
+            : setTimeout(waitAndInit, 300);
+          setTimeout(waitAndInit, 300);
+        }
+      }
     } else {
       showPinError('PIN incorreto. Tente novamente.');
     }
@@ -1517,9 +1576,16 @@ function isConfigured() {
 
 // ── Inicializa MSAL ──
 async function initMSAL() {
+  // Aguarda o script MSAL estar disponível (pode ter carregado após DOMContentLoaded)
+  if (typeof window.msal === 'undefined') {
+    console.warn('[MSAL] window.msal ainda não definido — initMSAL() abortado.');
+    msalInitError = 'Biblioteca MSAL ainda não carregada. Tente novamente em instantes.';
+    return;
+  }
+
   if (!isConfigured()) {
     // Sem Client ID → mostra aviso na tela de Resumo mas não bloqueia o app
-    console.warn('Client ID não configurado. Rodando em modo local.');
+    console.warn('[MSAL] Client ID não configurado. Rodando em modo local.');
     isMSALReady = false;
     addConfigWarning();
     return;
@@ -1610,13 +1676,19 @@ function updateMsAccountUI(account) {
 
 // ── Botão único: conecta se desconectado, desconecta se conectado ──
 async function msConnectOrDisconnect() {
+  // Verifica se a biblioteca MSAL foi carregada pela CDN
+  if (typeof window.msal === 'undefined') {
+    showToast('⚠️ Biblioteca Microsoft ainda carregando. Aguarde e tente novamente.', 4000);
+    return;
+  }
+
   // Se o MSAL ainda não foi inicializado (ex: clicou antes do PIN),
   // inicializa agora e só então tenta logar.
   if (!msalInstance) {
     const btnEl = document.getElementById('ms-connect-btn');
     if (btnEl) { btnEl.textContent = 'Aguarde...'; btnEl.disabled = true; }
     await initMSAL();
-    if (btnEl) { btnEl.disabled = false; }
+    if (btnEl) { btnEl.disabled = false; btnEl.textContent = 'Conectar'; }
     // Se initMSAL já logou silenciosamente, não precisa continuar
     if (msalInstance && msalInstance.getAllAccounts().length > 0) return;
   }
@@ -1811,12 +1883,21 @@ function showSyncBadge(show) {
 // ═══════════════════════════════════════════════════
 updateCategories();
 renderInicio();
-// Se o PIN já estava desbloqueado (sem tela de pin ativa), inicia MSAL direto
-// Caso contrário, o initMSAL() é chamado dentro de evaluatePin() após o PIN correto
-if (document.getElementById('pin-screen').classList.contains('hidden')) {
-  isMSALReady = true;
-  initMSAL();
+
+// initMSAL só pode rodar depois que a biblioteca MSAL estiver carregada.
+// O loader de CDN acima é assíncrono, então esperamos window.msal estar definido.
+function tryAutoInitMSAL() {
+  if (document.getElementById('pin-screen').classList.contains('hidden')) {
+    if (typeof window.msal !== 'undefined') {
+      isMSALReady = true;
+      initMSAL();
+    } else {
+      // MSAL ainda carregando — tenta novamente em 300ms
+      setTimeout(tryAutoInitMSAL, 300);
+    }
+  }
 }
+tryAutoInitMSAL();
 </script>
 </body>
 </html>
